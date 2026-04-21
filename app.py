@@ -1,5 +1,6 @@
 import asyncio
 import os
+from huggingface_hub import AsyncInferenceClient
 from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, StorageContext, load_index_from_storage
 from llama_index.core.agent.workflow import AgentWorkflow
 from llama_index.core.workflow import Context
@@ -7,10 +8,19 @@ from llama_index.llms.huggingface_api import HuggingFaceInferenceAPI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.core import Settings
 
+
+class _PersistentAsyncInferenceClient(AsyncInferenceClient):
+    """Subclass that ignores close() so the httpx session stays alive across agent steps."""
+    async def close(self):
+        pass
+
+
 # Configure models
 Settings.llm = HuggingFaceInferenceAPI(
     model_name="Qwen/Qwen2.5-Coder-32B-Instruct",
-    token=os.environ.get("HF_TOKEN")
+)
+Settings.llm._async_client = _PersistentAsyncInferenceClient(
+    **Settings.llm._get_inference_client_kwargs()
 )
 Settings.embed_model = HuggingFaceEmbedding(
     model_name="BAAI/bge-small-en-v1.5"
